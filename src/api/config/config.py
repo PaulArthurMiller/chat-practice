@@ -18,6 +18,8 @@ class Config:
 
     # Anthropic API
     ANTHROPIC_API_KEY: str = os.getenv('ANTHROPIC_API_KEY', '')
+    # Model name format: claude-{tier}-{major}-{minor}-{date}
+    # Example: claude-sonnet-4-5-20250929 (use dashes throughout, not dots)
     ANTHROPIC_MODEL: str = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-5-20250929')
 
     # Flask settings

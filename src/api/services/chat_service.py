@@ -24,6 +24,8 @@ class ChatService:
         Args:
             api_key: Anthropic API key
             model: Claude model to use (default: claude-sonnet-4-5-20250929)
+                   Note: Model name format uses dashes throughout, e.g.,
+                   claude-sonnet-4-5-20250929 (not claude-sonnet-4.5-20250929)
         """
         self.client = Anthropic(api_key=api_key)
         self.model = model
