@@ -31,11 +31,14 @@ def init_chat_services(config: Config) -> None:
     """
     global chat_service, conversation_manager
 
-    chat_service = ChatService(api_key=config.ANTHROPIC_API_KEY)
+    chat_service = ChatService(
+        api_key=config.ANTHROPIC_API_KEY,
+        model=config.ANTHROPIC_MODEL
+    )
     conversation_manager = ConversationManager(
         max_context_messages=config.MAX_CONTEXT_MESSAGES
     )
-    logger.info("Chat services initialized")
+    logger.info(f"Chat services initialized with model={config.ANTHROPIC_MODEL}")
 
 
 @chat_bp.route('/health', methods=['GET'])
