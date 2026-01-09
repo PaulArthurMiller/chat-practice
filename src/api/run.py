@@ -3,6 +3,14 @@ Development server entry point.
 Runs the Flask application for local development.
 """
 import sys
+from pathlib import Path
+
+# Add project root to Python path
+# This allows the script to be run from any directory
+project_root = Path(__file__).resolve().parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from src.api.app import create_app
 from src.api.config.config import Config
 

@@ -100,9 +100,17 @@ frontend/src/
    # Edit .env and add your Anthropic API key
    ```
 
-3. **Start Flask backend**:
+3. **Start Flask backend** (choose one method):
    ```bash
+   # Method 1: From project root (recommended)
+   python run_server.py
+
+   # Method 2: As a module
    python -m src.api.run
+
+   # Method 3: Direct script execution
+   python src/api/run.py
+
    # Should start on http://localhost:5000
    ```
 
@@ -206,6 +214,9 @@ frontend/src/
 - ✅ anthropic SDK version compatibility (0.39.0 → 0.40.0+)
 - ✅ httpx compatibility issue (added httpx>=0.27.0)
 - ✅ Missing API key error handling (improved messaging)
+- ✅ Python import path issues (ModuleNotFoundError: No module named 'src')
+  - Fixed by adding project root to sys.path in run.py
+  - Created convenience script run_server.py at project root
 
 ### Active 🔧
 - None currently
