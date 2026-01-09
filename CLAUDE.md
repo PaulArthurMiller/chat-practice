@@ -175,6 +175,87 @@ chat-practice/
 └── PROGRESS.md
 ```
 
+## Initial Setup Requirements
+
+### Git Configuration
+Create a `.gitignore` file with the following exclusions:
+
+**Python/Flask:**
+```
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+```
+
+**Node/React:**
+```
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+build/
+dist/
+```
+
+**Environment & Secrets:**
+```
+.env
+.env.local
+*.key
+*.pem
+```
+
+**IDEs & Editors:**
+```
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+```
+
+**OS Files:**
+```
+.DS_Store
+Thumbs.db
+desktop.ini
+```
+
+**Logs:**
+```
+*.log
+logs/
+```
+
+### Environment Variables
+Create a `.env.example` file as a template:
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+FLASK_ENV=development
+PORT=5000
+MAX_CONTEXT_MESSAGES=10
+RATE_LIMIT_CALLS=10
+RATE_LIMIT_PERIOD=60
+CORS_ORIGINS=http://localhost:3000
+```
+
+Never commit the actual `.env` file - it should be in `.gitignore`.
+```
+
 ## Python/JavaScript Interface Management
 
 **Critical Integration Points:**
