@@ -18,6 +18,7 @@ class Config:
 
     # Anthropic API
     ANTHROPIC_API_KEY: str = os.getenv('ANTHROPIC_API_KEY', '')
+    ANTHROPIC_MODEL: str = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4.5-20250929')
 
     # Flask settings
     FLASK_ENV: str = os.getenv('FLASK_ENV', 'development')
