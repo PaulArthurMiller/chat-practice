@@ -17,13 +17,13 @@ class ChatService:
     Handles message sending and streaming response generation.
     """
 
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4.5-20250929"):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-5-20250929"):
         """
         Initializes the chat service.
 
         Args:
             api_key: Anthropic API key
-            model: Claude model to use (default: claude-sonnet-4.5-20250929)
+            model: Claude model to use (default: claude-sonnet-4-5-20250929)
         """
         self.client = Anthropic(api_key=api_key)
         self.model = model
