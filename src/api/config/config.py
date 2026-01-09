@@ -41,7 +41,10 @@ class Config:
         Raises ValueError if required config is missing.
         """
         if not cls.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY is required in environment variables")
+            raise ValueError(
+                "ANTHROPIC_API_KEY is not set. "
+                "Please create a .env file with your API key (see .env.example)"
+            )
 
     @classmethod
     def get_config(cls) -> 'Config':
