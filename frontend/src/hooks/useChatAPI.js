@@ -3,7 +3,7 @@
  * Manages chat state, API calls, and streaming responses.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * @typedef {import('../types/chat.types').IMessage} IMessage
@@ -21,9 +21,6 @@ export function useChatAPI() {
   const [messages, setMessages] = useState(/** @type {IMessage[]} */ ([]));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(/** @type {string | null} */ (null));
-
-  // Track the current EventSource for cleanup
-  const eventSourceRef = useRef(/** @type {EventSource | null} */ (null));
 
   /**
    * Sends a message to the chat API and handles streaming response.
