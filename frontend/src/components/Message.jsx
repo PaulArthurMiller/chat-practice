@@ -27,22 +27,23 @@ export function Message({ message }) {
 
   return (
     <div
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 px-2 animate-fadeIn`}
     >
       <div
-        className={`max-w-[70%] rounded-lg px-4 py-2 ${
+        className={`max-w-[75%] rounded-2xl px-5 py-3 shadow-md ${
           isUser
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-200 text-gray-800'
+            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-br-sm'
+            : 'bg-white text-gray-800 rounded-bl-sm border border-gray-200'
         }`}
       >
-        <div className="text-xs font-semibold mb-1 opacity-75">
-          {isUser ? 'You' : 'Assistant'}
+        <div className={`text-xs font-semibold mb-2 flex items-center space-x-2 ${isUser ? 'text-indigo-100' : 'text-gray-600'}`}>
+          <span>{isUser ? '👤' : '🤖'}</span>
+          <span>{isUser ? 'You' : 'Claude'}</span>
         </div>
-        <div className="whitespace-pre-wrap break-words">
+        <div className="whitespace-pre-wrap break-words leading-relaxed">
           {message.content}
         </div>
-        <div className="text-xs mt-1 opacity-60">
+        <div className={`text-xs mt-2 ${isUser ? 'text-indigo-200' : 'text-gray-500'}`}>
           {message.timestamp.toLocaleTimeString()}
         </div>
       </div>

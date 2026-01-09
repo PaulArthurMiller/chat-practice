@@ -25,25 +25,35 @@ export function ChatContainer() {
   } = useChatAPI();
 
   return (
-    <div className="flex flex-col h-screen max-w-4xl mx-auto bg-white shadow-lg">
+    <div className="flex flex-col h-screen max-w-5xl mx-auto bg-gray-50">
       {/* Header */}
-      <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">Chat with Claude</h1>
-        <button
-          onClick={clearConversation}
-          className="px-3 py-1 bg-blue-500 hover:bg-blue-700 rounded text-sm transition-colors"
-        >
-          Clear Chat
-        </button>
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 shadow-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Chat with Claude</h1>
+            <p className="text-sm text-indigo-100 mt-1">Powered by Claude Sonnet 4.5</p>
+          </div>
+          <button
+            onClick={clearConversation}
+            className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 backdrop-blur-sm"
+            title="Clear conversation history"
+          >
+            🗑️ Clear Chat
+          </button>
+        </div>
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 flex justify-between items-center">
-          <span>{error}</span>
+        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 px-6 py-4 flex justify-between items-center shadow-sm">
+          <div className="flex items-center space-x-3">
+            <span className="text-xl">⚠️</span>
+            <span className="font-medium">{error}</span>
+          </div>
           <button
             onClick={clearError}
-            className="text-red-700 hover:text-red-900 font-bold"
+            className="text-red-600 hover:text-red-800 font-bold text-xl transition-colors"
+            title="Dismiss error"
           >
             ✕
           </button>
