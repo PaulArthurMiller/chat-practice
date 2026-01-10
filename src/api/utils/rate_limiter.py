@@ -78,13 +78,13 @@ def rate_limit(max_calls: int, period: int) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            # Use a simple identifier (could be enhanced with request.remote_addr)
-            identifier = 'default'
+            # Use client IP address for per-user rate limiting
+            from flask import request, jsonify
+            identifier = request.remote_addr or 'default'
 
             if not limiter.is_allowed(identifier):
-                from flask import jsonify
                 return jsonify({
-                    'error': 'Rate limit exceeded',
+                    'error': 'Rate limit exceeded. Please wait before sending more messages.',
                     'code': 'RATE_LIMIT_EXCEEDED',
                     'status': 429
                 }), 429
