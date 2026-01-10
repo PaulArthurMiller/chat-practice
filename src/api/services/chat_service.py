@@ -96,18 +96,27 @@ class ChatService:
 
             logger.info("Starting to stream response")
 
+            chunk_count = 0
+            total_length = 0
+
             # Stream the response text chunks
             for event in stream:
                 # Handle different event types from Claude streaming API
                 if event.type == 'content_block_delta':
                     if hasattr(event.delta, 'text'):
                         text_chunk = event.delta.text
+                        chunk_count += 1
+                        total_length += len(text_chunk)
+
                         # Format as SSE: data: {content}\n\n
-                        yield f"data: {text_chunk}\n\n"
-                        logger.debug(f"Streamed chunk: length={len(text_chunk)}")
+                        sse_chunk = f"data: {text_chunk}\n\n"
+                        yield sse_chunk
+
+                        # Log chunk details for debugging
+                        logger.debug(f"Chunk #{chunk_count}: {len(text_chunk)} chars | Preview: {text_chunk[:50]}...")
 
                 elif event.type == 'message_stop':
-                    logger.info("Stream completed successfully")
+                    logger.info(f"Stream completed: {chunk_count} chunks, {total_length} total chars")
                     break
 
         except APIError:

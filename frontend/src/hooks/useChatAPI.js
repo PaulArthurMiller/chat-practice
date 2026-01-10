@@ -130,6 +130,7 @@ export function useChatAPI() {
 
         let buffer = '';
         let hasContent = false;
+        let accumulatedContent = ''; // Accumulate all chunks locally
 
         try {
           while (true) {
@@ -151,15 +152,33 @@ export function useChatAPI() {
                 const data = line.slice(6); // Remove 'data: ' prefix
                 hasContent = true;
 
-                // Update assistant message with new content
-                setMessages(prev => prev.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: msg.content + data }
-                    : msg
-                ));
+                // Accumulate content locally (no state update yet)
+                accumulatedContent += data;
+
+                // Log chunk for debugging
+                console.debug(`Received chunk (${data.length} chars):`, data.substring(0, 50) + '...');
               }
             }
+
+            // Update state in batches (every chunk batch, not every individual chunk)
+            // This prevents React state update collisions
+            if (hasContent) {
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: accumulatedContent }
+                  : msg
+              ));
+            }
           }
+
+          // Final update with complete accumulated content
+          setMessages(prev => prev.map(msg =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: accumulatedContent }
+              : msg
+          ));
+
+          console.log(`Streaming complete. Total content: ${accumulatedContent.length} chars`);
 
           // Streaming completed successfully
           setIsLoading(false);
@@ -169,8 +188,13 @@ export function useChatAPI() {
           // Handle streaming errors gracefully
           console.error('Streaming error:', streamError);
 
-          if (hasContent) {
+          if (hasContent && accumulatedContent) {
             // If we got partial content, keep it and show error
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: accumulatedContent }
+                : msg
+            ));
             setError('⚠️ Connection interrupted. Partial response received.');
             setIsLoading(false);
             return;
