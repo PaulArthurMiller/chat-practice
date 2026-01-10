@@ -7,6 +7,7 @@ from flask_cors import CORS
 from src.api.config.config import Config
 from src.api.routes.chat_routes import chat_bp, init_chat_services
 from src.api.utils.logger import setup_logger
+from src.api.utils.request_context import add_request_id_to_app
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,9 +32,13 @@ def create_app(config: Config = None) -> Flask:
 
     app.config.from_object(config)
 
-    # Setup logging
+    # Setup logging with request ID tracking
     setup_logger('chat_api', level=logging.DEBUG if config.DEBUG else logging.INFO)
     logger.info("Initializing Flask application")
+
+    # Add request ID middleware
+    add_request_id_to_app(app)
+    logger.info("Request ID tracking enabled")
 
     # Configure CORS
     CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
