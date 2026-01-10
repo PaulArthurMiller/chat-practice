@@ -168,8 +168,14 @@ export function useChatAPI() {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6); // Remove 'data: ' prefix
 
+                // EXPLICIT DEBUG OUTPUT
+                console.log('🟢 FRONTEND RECEIVED:', data.substring(0, 50) + '...');
+                console.log('🟢 Data length:', data.length);
+
                 // Accumulate content locally (this never drops data)
                 accumulatedContent += data;
+
+                console.log('🟢 Accumulated so far:', accumulatedContent.length, 'chars');
 
                 // Log chunk for debugging
                 console.debug(`Chunk ${accumulatedContent.length} chars:`, data.substring(0, 50) + '...');
@@ -186,6 +192,9 @@ export function useChatAPI() {
           }
 
           // Final update with complete accumulated content (ensures everything is displayed)
+          console.log('🟢 FINAL ACCUMULATED CONTENT LENGTH:', accumulatedContent.length);
+          console.log('🟢 FINAL CONTENT PREVIEW:', accumulatedContent.substring(0, 200) + '...');
+
           setMessages(prev => prev.map(msg =>
             msg.id === assistantMessageId
               ? { ...msg, content: accumulatedContent }
