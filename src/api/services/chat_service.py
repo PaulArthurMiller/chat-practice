@@ -5,6 +5,7 @@ Handles communication with Anthropic's Claude API and manages streaming response
 from typing import Generator, List, Dict, Any
 import logging
 import sys
+import json
 from anthropic import Anthropic
 from src.api.config.config import Config
 from src.api.utils.error_handlers import APIError
@@ -114,11 +115,13 @@ class ChatService:
                         print(f"🔵 BACKEND CHUNK {chunk_count}: '{preview}...' (len={len(text_chunk)})", flush=True)
                         sys.stdout.flush()
 
-                        # Format as SSE: data: {content}\n\n
-                        sse_chunk = f"data: {text_chunk}\n\n"
+                        # Format as SSE with JSON encoding to preserve newlines
+                        # This prevents \n\n in content from breaking SSE message boundaries
+                        json_data = json.dumps({"text": text_chunk})
+                        sse_chunk = f"data: {json_data}\n\n"
 
                         # Debug the SSE format
-                        print(f"🔵 SSE FORMAT: {repr(sse_chunk[:60])}...", flush=True)
+                        print(f"🔵 SSE FORMAT: {repr(sse_chunk[:80])}...", flush=True)
 
                         yield sse_chunk
 
