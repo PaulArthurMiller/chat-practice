@@ -29,6 +29,7 @@ class Config:
 
     # Chat settings
     MAX_CONTEXT_MESSAGES: int = int(os.getenv('MAX_CONTEXT_MESSAGES', '10'))
+    MAX_TOKENS: int = int(os.getenv('MAX_TOKENS', '4096'))  # Maximum tokens in Claude response
 
     # Rate limiting
     RATE_LIMIT_CALLS: int = int(os.getenv('RATE_LIMIT_CALLS', '10'))

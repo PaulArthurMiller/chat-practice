@@ -19,6 +19,7 @@ chat_bp = Blueprint('chat', __name__, url_prefix='/api')
 # Initialize services (will be properly initialized in app factory)
 chat_service: ChatService = None
 conversation_manager: ConversationManager = None
+app_config: Config = None
 
 
 def init_chat_services(config: Config) -> None:
@@ -29,8 +30,9 @@ def init_chat_services(config: Config) -> None:
     Args:
         config: Application configuration
     """
-    global chat_service, conversation_manager
+    global chat_service, conversation_manager, app_config
 
+    app_config = config
     chat_service = ChatService(
         api_key=config.ANTHROPIC_API_KEY,
         model=config.ANTHROPIC_MODEL
@@ -38,7 +40,7 @@ def init_chat_services(config: Config) -> None:
     conversation_manager = ConversationManager(
         max_context_messages=config.MAX_CONTEXT_MESSAGES
     )
-    logger.info(f"Chat services initialized with model={config.ANTHROPIC_MODEL}")
+    logger.info(f"Chat services initialized with model={config.ANTHROPIC_MODEL}, max_tokens={config.MAX_TOKENS}")
 
 
 @chat_bp.route('/health', methods=['GET'])
@@ -101,22 +103,39 @@ def chat() -> Response:
 
     # Stream response from Claude
     def generate():
-        """Generator function for SSE streaming."""
-        try:
-            assistant_message = ""
+        """
+        Generator function for SSE streaming.
+        Properly handles connection cleanup and error cases.
+        """
+        assistant_message = []  # Collect chunks as list for efficiency
 
-            for chunk in chat_service.stream_response(messages):
-                assistant_message += chunk.replace("data: ", "").replace("\n\n", "")
+        try:
+            for chunk in chat_service.stream_response(messages, max_tokens=app_config.MAX_TOKENS):
+                # Extract text content from SSE format: "data: {text}\n\n"
+                if chunk.startswith("data: ") and chunk.endswith("\n\n"):
+                    text = chunk[6:-2]  # Remove "data: " prefix and "\n\n" suffix
+                    assistant_message.append(text)
+
                 yield chunk
 
             # Add assistant's complete response to conversation
-            conversation_manager.add_message('assistant', assistant_message)
-            logger.info(f"Completed streaming response: length={len(assistant_message)}")
+            complete_message = "".join(assistant_message)
+            conversation_manager.add_message('assistant', complete_message)
+            logger.info(f"Completed streaming response: length={len(complete_message)}")
 
+        except APIError as e:
+            # API errors are already logged and formatted
+            logger.error(f"API error in stream generator: {e.message}", exc_info=True)
+            # Don't yield error - let connection close and frontend retry logic handle it
+            raise
         except Exception as e:
-            logger.error(f"Error in stream generator: {str(e)}", exc_info=True)
-            error_data = f"data: {{\"error\": \"Streaming error\"}}\n\n"
-            yield error_data
+            # Unexpected errors
+            logger.error(f"Unexpected error in stream generator: {str(e)}", exc_info=True)
+            # Don't yield error - close connection cleanly
+            raise
+        finally:
+            # Ensure any cleanup happens
+            logger.debug("Stream generator cleanup completed")
 
     # Return streaming response with SSE headers
     return Response(
