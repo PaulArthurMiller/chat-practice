@@ -12,6 +12,33 @@ import { useState, useCallback } from 'react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// Retry configuration for transient errors
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000; // Start with 1 second
+const RETRYABLE_STATUS_CODES = [500, 502, 503, 504]; // Server errors that may be transient
+
+/**
+ * Delays execution for specified milliseconds.
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise<void>}
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Checks if an error is retryable.
+ * @param {Error} error - The error to check
+ * @param {number} status - HTTP status code
+ * @returns {boolean}
+ */
+const isRetryable = (error, status) => {
+  // Network errors (fetch failures)
+  if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+    return true;
+  }
+  // Server errors that might be transient
+  return RETRYABLE_STATUS_CODES.includes(status);
+};
+
 /**
  * Hook for managing chat API interactions.
  *
@@ -46,72 +73,144 @@ export function useChatAPI() {
 
     setMessages(prev => [...prev, userMessage]);
 
-    try {
-      // Create assistant message placeholder for streaming
-      const assistantMessageId = (Date.now() + 1).toString();
-      const assistantMessage = {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date()
-      };
+    // Create assistant message placeholder for streaming
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date()
+    };
 
-      setMessages(prev => [...prev, assistantMessage]);
+    setMessages(prev => [...prev, assistantMessage]);
 
-      // Send POST request to initiate streaming
-      const response = await fetch(`${API_BASE_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: messageText }),
-      });
+    // Retry logic with exponential backoff
+    let lastError = null;
+    let lastStatus = null;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Send POST request to initiate streaming
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: messageText }),
+        });
 
-      // Handle SSE streaming
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+        // Parse error responses
+        if (!response.ok) {
+          lastStatus = response.status;
+          let errorMessage = `HTTP error! status: ${response.status}`;
 
-      let buffer = '';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
 
-      while (true) {
-        const { done, value } = await reader.read();
+            // Special handling for rate limit errors
+            if (response.status === 429) {
+              setError(`⏱️ ${errorMessage}`);
+              setIsLoading(false);
+              // Remove empty assistant message
+              setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
+              return; // Don't retry rate limit errors
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, use generic error message
+            console.warn('Failed to parse error response:', parseError);
+          }
 
-        if (done) {
-          break;
+          throw new Error(errorMessage);
         }
 
-        // Decode the chunk and add to buffer
-        buffer += decoder.decode(value, { stream: true });
+        // Handle SSE streaming
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-        // Process complete SSE messages in buffer
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || ''; // Keep incomplete message in buffer
+        let buffer = '';
+        let hasContent = false;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6); // Remove 'data: ' prefix
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
 
-            // Update assistant message with new content
-            setMessages(prev => prev.map(msg =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + data }
-                : msg
-            ));
+            if (done) {
+              break;
+            }
+
+            // Decode the chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
+
+            // Process complete SSE messages in buffer
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || ''; // Keep incomplete message in buffer
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6); // Remove 'data: ' prefix
+                hasContent = true;
+
+                // Update assistant message with new content
+                setMessages(prev => prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: msg.content + data }
+                    : msg
+                ));
+              }
+            }
+          }
+
+          // Streaming completed successfully
+          setIsLoading(false);
+          return; // Exit successfully
+
+        } catch (streamError) {
+          // Handle streaming errors gracefully
+          console.error('Streaming error:', streamError);
+
+          if (hasContent) {
+            // If we got partial content, keep it and show error
+            setError('⚠️ Connection interrupted. Partial response received.');
+            setIsLoading(false);
+            return;
+          } else {
+            // No content received, treat as retryable
+            throw new Error('Streaming failed: ' + streamError.message);
           }
         }
+
+      } catch (err) {
+        lastError = err;
+        console.error(`Attempt ${attempt + 1} failed:`, err);
+
+        // Check if should retry
+        if (attempt < MAX_RETRIES && isRetryable(err, lastStatus)) {
+          const delayMs = RETRY_DELAY_MS * Math.pow(2, attempt); // Exponential backoff
+          console.log(`Retrying in ${delayMs}ms...`);
+          await delay(delayMs);
+          continue; // Try again
+        }
+
+        // All retries exhausted or non-retryable error
+        break;
       }
-
-      setIsLoading(false);
-
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError(err.message || 'Failed to send message');
-      setIsLoading(false);
     }
+
+    // If we get here, all attempts failed
+    console.error('All retry attempts failed:', lastError);
+
+    // Show user-friendly error message
+    let errorMessage = lastError?.message || 'Failed to send message';
+    if (lastStatus && RETRYABLE_STATUS_CODES.includes(lastStatus)) {
+      errorMessage = `🔌 ${errorMessage}. Server may be temporarily unavailable.`;
+    }
+
+    setError(errorMessage);
+    setIsLoading(false);
+
+    // Remove empty assistant message on complete failure
+    setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
   }, [isLoading]);
 
   /**
@@ -133,7 +232,16 @@ export function useChatAPI() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to clear conversation');
+        let errorMessage = 'Failed to clear conversation';
+
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.warn('Failed to parse error response:', parseError);
+        }
+
+        throw new Error(errorMessage);
       }
 
       setMessages([]);
