@@ -118,10 +118,17 @@ def chat() -> Response:
                     assistant_message.append(text)
                     chunk_count += 1
 
+                    # Debug what we're extracting
+                    print(f"🔵 ROUTE: Extracted chunk {chunk_count}: '{text[:50]}...' (len={len(text)})", flush=True)
+
                 yield chunk
 
             # Add assistant's complete response to conversation
             complete_message = "".join(assistant_message)
+
+            print(f"🔵 ROUTE: Final assembled message length: {len(complete_message)}", flush=True)
+            print(f"🔵 ROUTE: Preview: {complete_message[:200]}...", flush=True)
+
             conversation_manager.add_message('assistant', complete_message)
             logger.info(f"Completed streaming: {chunk_count} chunks sent, {len(complete_message)} total chars")
 
