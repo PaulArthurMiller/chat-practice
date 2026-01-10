@@ -3,7 +3,7 @@
  * Manages chat state, API calls, and streaming responses.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 /**
  * @typedef {import('../types/chat.types').IMessage} IMessage
@@ -124,13 +124,30 @@ export function useChatAPI() {
           throw new Error(errorMessage);
         }
 
-        // Handle SSE streaming
+        // Handle SSE streaming with robust chunk accumulation
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
         let buffer = '';
-        let hasContent = false;
-        let accumulatedContent = ''; // Accumulate all chunks locally
+        let accumulatedContent = ''; // Accumulate all chunks locally (never dropped)
+        let pendingUpdate = false;
+        let animationFrameId = null;
+
+        // Debounced update function using requestAnimationFrame
+        // This ensures updates happen at browser's render cycle, preventing collisions
+        const scheduleUpdate = () => {
+          if (pendingUpdate) return; // Already scheduled
+
+          pendingUpdate = true;
+          animationFrameId = requestAnimationFrame(() => {
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: accumulatedContent }
+                : msg
+            ));
+            pendingUpdate = false;
+          });
+        };
 
         try {
           while (true) {
@@ -150,45 +167,47 @@ export function useChatAPI() {
             for (const line of lines) {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6); // Remove 'data: ' prefix
-                hasContent = true;
 
-                // Accumulate content locally (no state update yet)
+                // Accumulate content locally (this never drops data)
                 accumulatedContent += data;
 
                 // Log chunk for debugging
-                console.debug(`Received chunk (${data.length} chars):`, data.substring(0, 50) + '...');
+                console.debug(`Chunk ${accumulatedContent.length} chars:`, data.substring(0, 50) + '...');
               }
             }
 
-            // Update state in batches (every chunk batch, not every individual chunk)
-            // This prevents React state update collisions
-            if (hasContent) {
-              setMessages(prev => prev.map(msg =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: accumulatedContent }
-                  : msg
-              ));
-            }
+            // Schedule UI update (debounced to animation frame)
+            scheduleUpdate();
           }
 
-          // Final update with complete accumulated content
+          // Cancel any pending animation frame
+          if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+          }
+
+          // Final update with complete accumulated content (ensures everything is displayed)
           setMessages(prev => prev.map(msg =>
             msg.id === assistantMessageId
               ? { ...msg, content: accumulatedContent }
               : msg
           ));
 
-          console.log(`Streaming complete. Total content: ${accumulatedContent.length} chars`);
+          console.log(`✅ Streaming complete. Total: ${accumulatedContent.length} chars`);
 
           // Streaming completed successfully
           setIsLoading(false);
           return; // Exit successfully
 
         } catch (streamError) {
+          // Cancel any pending animation frame
+          if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+          }
+
           // Handle streaming errors gracefully
           console.error('Streaming error:', streamError);
 
-          if (hasContent && accumulatedContent) {
+          if (accumulatedContent) {
             // If we got partial content, keep it and show error
             setMessages(prev => prev.map(msg =>
               msg.id === assistantMessageId
