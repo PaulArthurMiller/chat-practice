@@ -108,6 +108,7 @@ def chat() -> Response:
         Properly handles connection cleanup and error cases.
         """
         assistant_message = []  # Collect chunks as list for efficiency
+        chunk_count = 0
 
         try:
             for chunk in chat_service.stream_response(messages, max_tokens=app_config.MAX_TOKENS):
@@ -115,13 +116,14 @@ def chat() -> Response:
                 if chunk.startswith("data: ") and chunk.endswith("\n\n"):
                     text = chunk[6:-2]  # Remove "data: " prefix and "\n\n" suffix
                     assistant_message.append(text)
+                    chunk_count += 1
 
                 yield chunk
 
             # Add assistant's complete response to conversation
             complete_message = "".join(assistant_message)
             conversation_manager.add_message('assistant', complete_message)
-            logger.info(f"Completed streaming response: length={len(complete_message)}")
+            logger.info(f"Completed streaming: {chunk_count} chunks sent, {len(complete_message)} total chars")
 
         except APIError as e:
             # API errors are already logged and formatted
@@ -135,7 +137,7 @@ def chat() -> Response:
             raise
         finally:
             # Ensure any cleanup happens
-            logger.debug("Stream generator cleanup completed")
+            logger.debug(f"Stream generator cleanup completed (sent {chunk_count} chunks)")
 
     # Return streaming response with SSE headers
     return Response(
