@@ -5,6 +5,7 @@ Handles HTTP endpoints for chat functionality.
 from flask import Blueprint, request, Response, jsonify
 from typing import Dict, Any
 import logging
+import json
 from src.api.services.chat_service import ChatService
 from src.api.services.conversation_manager import ConversationManager
 from src.api.config.config import Config
@@ -112,14 +113,20 @@ def chat() -> Response:
 
         try:
             for chunk in chat_service.stream_response(messages, max_tokens=app_config.MAX_TOKENS):
-                # Extract text content from SSE format: "data: {text}\n\n"
+                # Extract text content from JSON-encoded SSE format: "data: {"text":"..."}\n\n"
                 if chunk.startswith("data: ") and chunk.endswith("\n\n"):
-                    text = chunk[6:-2]  # Remove "data: " prefix and "\n\n" suffix
-                    assistant_message.append(text)
-                    chunk_count += 1
+                    json_str = chunk[6:-2]  # Remove "data: " prefix and "\n\n" suffix
+                    try:
+                        parsed = json.loads(json_str)
+                        text = parsed.get("text", "")
+                        assistant_message.append(text)
+                        chunk_count += 1
 
-                    # Debug what we're extracting
-                    print(f"🔵 ROUTE: Extracted chunk {chunk_count}: '{text[:50]}...' (len={len(text)})", flush=True)
+                        # Debug what we're extracting
+                        preview = text[:50].replace('\n', '\\n')
+                        print(f"🔵 ROUTE: Extracted chunk {chunk_count}: '{preview}...' (len={len(text)})", flush=True)
+                    except json.JSONDecodeError as e:
+                        print(f"🔴 ROUTE: Failed to parse JSON: {json_str[:100]}", flush=True)
 
                 yield chunk
 

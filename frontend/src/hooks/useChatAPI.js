@@ -166,19 +166,28 @@ export function useChatAPI() {
 
             for (const line of lines) {
               if (line.startsWith('data: ')) {
-                const data = line.slice(6); // Remove 'data: ' prefix
+                const jsonData = line.slice(6); // Remove 'data: ' prefix
 
-                // EXPLICIT DEBUG OUTPUT
-                console.log('🟢 FRONTEND RECEIVED:', data.substring(0, 50) + '...');
-                console.log('🟢 Data length:', data.length);
+                try {
+                  // Parse JSON to get the actual text (preserves newlines)
+                  const parsed = JSON.parse(jsonData);
+                  const data = parsed.text;
 
-                // Accumulate content locally (this never drops data)
-                accumulatedContent += data;
+                  // EXPLICIT DEBUG OUTPUT
+                  const preview = data.substring(0, 50).replace(/\n/g, '\\n');
+                  console.log('🟢 FRONTEND RECEIVED:', preview + '...');
+                  console.log('🟢 Data length:', data.length);
 
-                console.log('🟢 Accumulated so far:', accumulatedContent.length, 'chars');
+                  // Accumulate content locally (this never drops data)
+                  accumulatedContent += data;
 
-                // Log chunk for debugging
-                console.debug(`Chunk ${accumulatedContent.length} chars:`, data.substring(0, 50) + '...');
+                  console.log('🟢 Accumulated so far:', accumulatedContent.length, 'chars');
+
+                  // Log chunk for debugging
+                  console.debug(`Chunk ${accumulatedContent.length} chars:`, preview + '...');
+                } catch (parseError) {
+                  console.error('🔴 Failed to parse JSON chunk:', jsonData, parseError);
+                }
               }
             }
 
