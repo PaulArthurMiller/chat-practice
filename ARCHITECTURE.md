@@ -176,6 +176,11 @@ A simple full-stack chat application demonstrating clean separation between pres
 - Perfect for AI response streaming
 - Flask supports via generator functions
 
+**Important Implementation Note:** 
+SSE uses `\n\n` as message delimiters. All streamed content must be 
+JSON-encoded to prevent content containing newlines from breaking the 
+stream. See CLAUDE.md SSE section for details.
+
 ### Why Python Generators for Streaming?
 - Natural fit for SSE in Flask
 - Memory efficient (yields chunks as available)
