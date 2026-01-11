@@ -65,11 +65,11 @@ def chat() -> Response:
 
     Request Body:
         {
-            "message": str  # User's message
+            "message": str  # User's message (1-10000 chars)
         }
 
     Returns:
-        Streaming response (SSE format) with Claude's reply
+        Streaming response (SSE format with JSON-encoded data) with Claude's reply
 
     Raises:
         APIError: If request is invalid or processing fails
@@ -87,10 +87,46 @@ def chat() -> Response:
     data = request.get_json()
     user_message = data.get('message', '').strip()
 
+    # Validate message presence
     if not user_message:
         raise APIError(
-            message="Message is required",
+            message="Message is required and cannot be empty",
             code="MISSING_MESSAGE",
+            status_code=400
+        )
+
+    # Validate message length
+    MIN_MESSAGE_LENGTH = 1
+    MAX_MESSAGE_LENGTH = 10000
+
+    if len(user_message) < MIN_MESSAGE_LENGTH:
+        raise APIError(
+            message=f"Message must be at least {MIN_MESSAGE_LENGTH} character",
+            code="MESSAGE_TOO_SHORT",
+            status_code=400
+        )
+
+    if len(user_message) > MAX_MESSAGE_LENGTH:
+        raise APIError(
+            message=f"Message must be no more than {MAX_MESSAGE_LENGTH} characters",
+            code="MESSAGE_TOO_LONG",
+            status_code=400
+        )
+
+    # Sanitize input: check for null bytes and control characters
+    if '\x00' in user_message:
+        raise APIError(
+            message="Message contains invalid characters (null bytes)",
+            code="INVALID_CHARACTERS",
+            status_code=400
+        )
+
+    # Check for problematic control characters (except newline, tab, carriage return)
+    control_chars = set(chr(i) for i in range(32)) - {'\n', '\t', '\r'}
+    if any(char in user_message for char in control_chars):
+        raise APIError(
+            message="Message contains invalid control characters",
+            code="INVALID_CHARACTERS",
             status_code=400
         )
 
@@ -121,21 +157,13 @@ def chat() -> Response:
                         text = parsed.get("text", "")
                         assistant_message.append(text)
                         chunk_count += 1
-
-                        # Debug what we're extracting
-                        preview = text[:50].replace('\n', '\\n')
-                        print(f"🔵 ROUTE: Extracted chunk {chunk_count}: '{preview}...' (len={len(text)})", flush=True)
                     except json.JSONDecodeError as e:
-                        print(f"🔴 ROUTE: Failed to parse JSON: {json_str[:100]}", flush=True)
+                        logger.error(f"Failed to parse JSON chunk: {json_str[:100]}", exc_info=True)
 
                 yield chunk
 
             # Add assistant's complete response to conversation
             complete_message = "".join(assistant_message)
-
-            print(f"🔵 ROUTE: Final assembled message length: {len(complete_message)}", flush=True)
-            print(f"🔵 ROUTE: Preview: {complete_message[:200]}...", flush=True)
-
             conversation_manager.add_message('assistant', complete_message)
             logger.info(f"Completed streaming: {chunk_count} chunks sent, {len(complete_message)} total chars")
 

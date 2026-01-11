@@ -5,6 +5,11 @@
 
 import React, { useState } from 'react';
 
+// Validation constants
+// IMPORTANT: Must match backend limits in src/api/routes/chat_routes.py
+// Backend enforces: MIN_MESSAGE_LENGTH=1, MAX_MESSAGE_LENGTH=10000
+const MAX_MESSAGE_LENGTH = 10000;
+
 /**
  * MessageInput component props.
  *
@@ -22,6 +27,12 @@ import React, { useState } from 'react';
 export function MessageInput({ onSendMessage, disabled }) {
   const [message, setMessage] = useState('');
 
+  // Calculate validation state
+  const messageLength = message.length;
+  const isMessageTooLong = messageLength > MAX_MESSAGE_LENGTH;
+  const isMessageEmpty = !message.trim();
+  const isApproachingLimit = messageLength > MAX_MESSAGE_LENGTH * 0.9; // 90% threshold
+
   /**
    * Handles form submission.
    * @param {React.FormEvent} e
@@ -29,7 +40,8 @@ export function MessageInput({ onSendMessage, disabled }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (message.trim() && !disabled) {
+    // Only submit if message is valid and not disabled
+    if (!isMessageEmpty && !isMessageTooLong && !disabled) {
       onSendMessage(message);
       setMessage('');
     }
@@ -61,7 +73,7 @@ export function MessageInput({ onSendMessage, disabled }) {
           />
           <button
             type="submit"
-            disabled={disabled || !message.trim()}
+            disabled={disabled || isMessageEmpty || isMessageTooLong}
             className="px-10 py-4 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 text-white rounded-2xl hover:from-indigo-600 hover:via-purple-700 hover:to-pink-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 font-semibold text-lg shadow-xl hover:shadow-2xl disabled:shadow-none transform hover:scale-105 disabled:scale-100"
           >
             {disabled ? (
@@ -80,9 +92,28 @@ export function MessageInput({ onSendMessage, disabled }) {
             )}
           </button>
         </div>
-        <div className="text-base text-gray-600 flex items-center space-x-3">
-          <span className="text-2xl">💡</span>
-          <span>Press <kbd className="px-3 py-1 bg-gray-100 border-2 border-gray-300 rounded text-sm font-mono">Enter</kbd> to send, <kbd className="px-3 py-1 bg-gray-100 border-2 border-gray-300 rounded text-sm font-mono">Shift+Enter</kbd> for a new line</span>
+
+        {/* Character counter with validation feedback */}
+        <div className="w-full max-w-4xl flex justify-between items-center">
+          <div className="text-base text-gray-600 flex items-center space-x-3">
+            <span className="text-2xl">💡</span>
+            <span>Press <kbd className="px-3 py-1 bg-gray-100 border-2 border-gray-300 rounded text-sm font-mono">Enter</kbd> to send, <kbd className="px-3 py-1 bg-gray-100 border-2 border-gray-300 rounded text-sm font-mono">Shift+Enter</kbd> for a new line</span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <span className={`text-sm font-medium ${
+              isMessageTooLong
+                ? 'text-red-600'
+                : isApproachingLimit
+                  ? 'text-yellow-600'
+                  : 'text-gray-500'
+            }`}>
+              {messageLength.toLocaleString()} / {MAX_MESSAGE_LENGTH.toLocaleString()}
+            </span>
+            {isMessageTooLong && (
+              <span className="text-xs text-red-600 font-semibold">⚠️ Too long</span>
+            )}
+          </div>
         </div>
       </div>
     </form>

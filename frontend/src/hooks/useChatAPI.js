@@ -3,7 +3,7 @@
  * Manages chat state, API calls, and streaming responses.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * @typedef {import('../types/chat.types').IMessage} IMessage
@@ -169,24 +169,16 @@ export function useChatAPI() {
                 const jsonData = line.slice(6); // Remove 'data: ' prefix
 
                 try {
-                  // Parse JSON to get the actual text (preserves newlines)
+                  // Parse JSON to extract text content
+                  // Backend sends: data: {"text":"content"}\n\n
+                  // JSON encoding prevents \n\n in content from breaking SSE message boundaries
                   const parsed = JSON.parse(jsonData);
                   const data = parsed.text;
 
-                  // EXPLICIT DEBUG OUTPUT
-                  const preview = data.substring(0, 50).replace(/\n/g, '\\n');
-                  console.log('🟢 FRONTEND RECEIVED:', preview + '...');
-                  console.log('🟢 Data length:', data.length);
-
                   // Accumulate content locally (this never drops data)
                   accumulatedContent += data;
-
-                  console.log('🟢 Accumulated so far:', accumulatedContent.length, 'chars');
-
-                  // Log chunk for debugging
-                  console.debug(`Chunk ${accumulatedContent.length} chars:`, preview + '...');
                 } catch (parseError) {
-                  console.error('🔴 Failed to parse JSON chunk:', jsonData, parseError);
+                  console.error('Failed to parse JSON chunk:', jsonData, parseError);
                 }
               }
             }
@@ -201,16 +193,11 @@ export function useChatAPI() {
           }
 
           // Final update with complete accumulated content (ensures everything is displayed)
-          console.log('🟢 FINAL ACCUMULATED CONTENT LENGTH:', accumulatedContent.length);
-          console.log('🟢 FINAL CONTENT PREVIEW:', accumulatedContent.substring(0, 200) + '...');
-
           setMessages(prev => prev.map(msg =>
             msg.id === assistantMessageId
               ? { ...msg, content: accumulatedContent }
               : msg
           ));
-
-          console.log(`✅ Streaming complete. Total: ${accumulatedContent.length} chars`);
 
           // Streaming completed successfully
           setIsLoading(false);
