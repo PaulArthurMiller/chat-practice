@@ -66,16 +66,19 @@ def client(app):
 
 
 @pytest.fixture
-def mock_anthropic_client():
+def mock_anthropic_client(mock_streaming_response):
     """
-    Create a mocked Anthropic client.
+    Create a mocked Anthropic client with default streaming response.
 
     Returns:
         Mock: Mocked Anthropic client with messages.create method
     """
     mock_client = Mock()
     mock_client.messages = Mock()
-    mock_client.messages.create = Mock()
+
+    # Set up default return value for streaming
+    mock_client.messages.create.return_value = mock_streaming_response
+
     return mock_client
 
 

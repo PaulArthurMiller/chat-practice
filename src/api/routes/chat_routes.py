@@ -85,7 +85,17 @@ def chat() -> Response:
         )
 
     data = request.get_json()
-    user_message = data.get('message', '').strip()
+    user_message = data.get('message', '')
+
+    # Validate message type
+    if not isinstance(user_message, str):
+        raise APIError(
+            message="Message must be a string",
+            code="INVALID_MESSAGE_TYPE",
+            status_code=400
+        )
+
+    user_message = user_message.strip()
 
     # Validate message presence
     if not user_message:
