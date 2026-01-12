@@ -5,6 +5,7 @@ Provides consistent error responses across the API.
 from functools import wraps
 from typing import Callable, Dict, Any, Tuple
 from flask import jsonify
+from werkzeug.exceptions import HTTPException
 import logging
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,15 @@ def handle_errors(f: Callable) -> Callable:
         except APIError as e:
             logger.error(f"API Error: {e.message}", exc_info=True)
             return jsonify(e.to_dict()), e.status_code
+        except HTTPException as e:
+            # Handle werkzeug HTTP exceptions (BadRequest, NotFound, etc.)
+            logger.warning(f"HTTP Error: {e.code} - {e.description}")
+            error_response = {
+                'error': e.description or str(e),
+                'code': e.name or 'HTTP_ERROR',
+                'status': e.code
+            }
+            return jsonify(error_response), e.code
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}", exc_info=True)
             error_response = {
