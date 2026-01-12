@@ -4,10 +4,8 @@ Handles communication with Anthropic's Claude API and manages streaming response
 """
 from typing import Generator, List, Dict, Any
 import logging
-import sys
 import json
 from anthropic import Anthropic
-from src.api.config.config import Config
 from src.api.utils.error_handlers import APIError
 
 logger = logging.getLogger(__name__)
@@ -81,14 +79,17 @@ class ChatService:
     ) -> Generator[str, None, None]:
         """
         Streams response from Claude API in SSE format.
-        Yields properly formatted SSE data chunks.
+        Yields properly formatted SSE data chunks with JSON-encoded text.
+
+        The text content is JSON-encoded to prevent newlines in the content
+        from breaking SSE message boundaries (SSE uses \\n\\n as delimiter).
 
         Args:
             messages: List of message dictionaries with 'role' and 'content'
             max_tokens: Maximum tokens in response (default: 1024)
 
         Yields:
-            str: SSE-formatted data chunks (data: {json}\n\n)
+            str: SSE-formatted data chunks in format: data: {"text": "..."}\\n\\n
 
         Raises:
             APIError: If streaming fails
@@ -110,18 +111,10 @@ class ChatService:
                         chunk_count += 1
                         total_length += len(text_chunk)
 
-                        # EXPLICIT DEBUG OUTPUT
-                        preview = text_chunk[:50].replace('\n', '\\n')
-                        print(f"🔵 BACKEND CHUNK {chunk_count}: '{preview}...' (len={len(text_chunk)})", flush=True)
-                        sys.stdout.flush()
-
                         # Format as SSE with JSON encoding to preserve newlines
                         # This prevents \n\n in content from breaking SSE message boundaries
                         json_data = json.dumps({"text": text_chunk})
                         sse_chunk = f"data: {json_data}\n\n"
-
-                        # Debug the SSE format
-                        print(f"🔵 SSE FORMAT: {repr(sse_chunk[:80])}...", flush=True)
 
                         yield sse_chunk
 
